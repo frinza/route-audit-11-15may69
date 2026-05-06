@@ -1,24 +1,16 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="th">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>เส้นทางตรวจสาขา โซนเพชรบูรณ์ 11-15 พ.ค. 2569</title>
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
   :root {
-    --bg: #0f1117;
-    --surface: #1a1d27;
-    --surface2: #22263a;
-    --accent: #f0a500;
-    --accent2: #e05c2a;
-    --text: #e8eaf0;
-    --muted: #7a7f9a;
-    --day1: #4fc3f7;
-    --day2: #81c784;
-    --day3: #ffb74d;
-    --day4: #f06292;
-    --day5: #ce93d8;
+    --bg: #0f1117; --surface: #1a1d27; --surface2: #22263a;
+    --accent: #f0a500; --text: #e8eaf0; --muted: #7a7f9a;
     --hotel: #ffd54f;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -39,9 +31,9 @@
   .day-title { font-weight: 700; font-size: 13px; letter-spacing: 0.3px; }
   .day-date { font-size: 10px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin-left: auto; }
   .stops-list { padding: 4px 0 8px; }
-  .stop-item { display: flex; gap: 10px; padding: 7px 16px 7px 16px; cursor: pointer; transition: background 0.15s; position: relative; align-items: flex-start; }
+  .stop-item { display: flex; gap: 10px; padding: 7px 16px; cursor: pointer; transition: background 0.15s; align-items: flex-start; }
   .stop-item:hover { background: var(--surface2); }
-  .stop-item.active { background: rgba(240,165,0,0.08); }
+  .stop-item.active { background: rgba(240,165,0,0.12); border-left: 3px solid var(--accent); }
   .stop-line-wrap { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; margin-top: 3px; }
   .stop-num { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; font-family: 'IBM Plex Mono', monospace; flex-shrink: 0; border: 2px solid; }
   .stop-connector { width: 2px; flex: 1; min-height: 16px; margin-top: 2px; opacity: 0.3; }
@@ -50,35 +42,252 @@
   .stop-time { font-size: 10px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; margin-top: 1px; }
   .stop-tag { font-size: 9px; padding: 1px 5px; border-radius: 3px; margin-top: 3px; display: inline-block; font-weight: 600; letter-spacing: 0.5px; }
   .map-container { flex: 1; position: relative; background: #0a0d14; }
-  #map-frame { width: 100%; height: 100%; border: none; display: block; }
-  .map-overlay { position: absolute; top: 16px; right: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 10; }
-  .open-gmaps-btn { background: var(--accent); color: #000; border: none; padding: 10px 16px; border-radius: 6px; font-family: 'Sarabun', sans-serif; font-weight: 700; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 20px rgba(240,165,0,0.4); text-decoration: none; transition: transform 0.15s, box-shadow 0.15s; }
-  .open-gmaps-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 25px rgba(240,165,0,0.5); }
+  #map { width: 100%; height: 100%; }
+  #map .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(0.85) saturate(0.7); }
+  .map-overlay { position: absolute; top: 16px; right: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 1000; }
   .legend { background: rgba(15,17,23,0.92); border: 1px solid #2a2e3e; border-radius: 8px; padding: 12px; backdrop-filter: blur(10px); }
   .legend-title { font-size: 10px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; letter-spacing: 1px; margin-bottom: 8px; }
   .legend-item { display: flex; align-items: center; gap: 7px; margin-bottom: 5px; }
   .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
   .legend-label { font-size: 11px; color: var(--text); }
-  .stats-bar { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(15,17,23,0.92); border-top: 1px solid #2a2e3e; backdrop-filter: blur(10px); padding: 10px 20px; display: flex; gap: 24px; z-index: 10; }
+  .stats-bar { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(15,17,23,0.92); border-top: 1px solid #2a2e3e; backdrop-filter: blur(10px); padding: 10px 20px; display: flex; gap: 24px; z-index: 1000; }
   .stat { display: flex; flex-direction: column; gap: 1px; }
   .stat-val { font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 16px; color: var(--accent); }
   .stat-label { font-size: 10px; color: var(--muted); letter-spacing: 0.5px; }
+  /* Leaflet dark popup */
+  .leaflet-popup-content-wrapper { background: #1a1d27; color: #e8eaf0; border: 1px solid #2a2e3e; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.6); }
+  .leaflet-popup-tip { background: #1a1d27; }
+  .leaflet-popup-content { margin: 10px 14px; font-family: 'Sarabun', sans-serif; }
+  .popup-name { font-weight: 700; font-size: 13px; margin-bottom: 4px; }
+  .popup-time { font-size: 11px; color: #7a7f9a; font-family: 'IBM Plex Mono', monospace; }
+  .popup-tag { font-size: 10px; padding: 2px 6px; border-radius: 3px; display: inline-block; margin-top: 4px; font-weight: 600; }
+  .leaflet-control-zoom { border: 1px solid #2a2e3e !important; }
+  .leaflet-control-zoom a { background: #1a1d27 !important; color: #e8eaf0 !important; border-bottom: 1px solid #2a2e3e !important; }
+  .leaflet-control-zoom a:hover { background: #22263a !important; }
+  .leaflet-control-attribution { background: rgba(15,17,23,0.85) !important; color: #7a7f9a !important; font-size: 10px !important; }
+  .leaflet-control-attribution a { color: var(--accent) !important; }
 </style>
 </head>
 <body>
 <div class="header">
   <div class="header-top">
-    <span class="header-badge">ZONE เพชรบูรณ์</span>
+    <span class="header-badge">เส้นทางภาคเหนือ (นครสวรรค์)</span>
     <h1>เส้นทางตรวจสาขา 11–15 พ.ค. 2569</h1>
   </div>
-  <div class="header-sub">5 DAYS · 7 BRANCHES · 4 PROVINCES · ~750 KM TOTAL</div>
+  <div class="header-sub" id="header-sub">5 DAYS · 7 BRANCHES · 4 PROVINCES · คำนวณ...</div>
 </div>
 <div class="layout">
-  <div class="sidebar">
-    <div class="day-section"><div class="day-header"><div class="day-dot" style="background:var(--day1)"></div><span class="day-title" style="color:var(--day1)">Day 1</span><span class="day-date">11 พ.ค.</span></div><div class="stops-list"><div class="stop-item"><div class="stop-line-wrap"><div class="stop-num" style="color:var(--day1);border-color:var(--day1);background:rgba(79,195,247,0.1)">S</div><div class="stop-connector" style="background:var(--day1)"></div></div><div class="stop-info"><div class="stop-name">🚗 จุดเริ่มต้น</div><div class="stop-time">08:30 น. ออกเดินทาง</div><span class="stop-tag" style="background:rgba(79,195,247,0.15);color:var(--day1)">START</span></div></div><div class="stop-item"><div class="stop-line-wrap"><div class="stop-num" style="color:var(--day1);border-color:var(--day1);background:rgba(79,195,247,0.1)">1</div><div class="stop-connector" style="background:var(--day1)"></div></div><div class="stop-info"><div class="stop-name">โลตัสศรีเทพ</div><div class="stop-time">11:30–13:00 น.</div><span class="stop-tag" style="background:rgba(79,195,247,0.15);color:var(--day1)">BRANCH</span></div></div><div class="stop-item"><div class="stop-line-wrap"><div class="stop-num" style="color:var(--day1);border-color:var(--day1);background:rgba(79,195,247,0.1)">2</div><div class="stop-connector" style="background:var(--day1)"></div></div><div class="stop-info"><div class="stop-name">Big C วิเชียรบุรี</div><div class="stop-time">14:00–15:30 น.</div><span class="stop-tag" style="background:rgba(79,195,247,0.15);color:var(--day1)">BRANCH</span></div></div><div class="stop-item"><div class="stop-line-wrap"><div class="stop-num" style="color:var(--day1);border-color:var(--day1);background:rgba(79,195,247,0.1)">3</div><div class="stop-connector" style="background:var(--day1)"></div></div><div class="stop-info"><div class="stop-name">โลตัสเพชรบูรณ์</div><div class="stop-time">17:00–18:30 น.</div><span class="stop-tag" style="background:rgba(79,195,247,0.15);color:var(--day1)">BRANCH</span></div></div><div class="stop-item"><div class="stop-line-wrap"><div class="stop-num" style="color:var(--hotel);border-color:var(--hotel);background:rgba(255,213,79,0.1)">H</div></div><div class="stop-info"><div class="stop-name">รร.เฟื่องฟ้าลิทซ์</div><div class="stop-time">18:40 น. เช็คอิน</div><span class="stop-tag" style="background:rgba(255,213,79,0.15);color:var(--hotel)">HOTEL</span></div></div></div></div>
-    <div class="day-section"><div class="day-header"><div class="day-dot" style="background:var(--day2)"></div><span class="day-title" style="color:var(--day2)">Day 2</span><span class="day-date">12 พ.ค.</span></div><div class="stops-list"><div class="stop-item"><div class="stop-line-wrap"><div class="stop-num" style="color:var(--day2);border-color:var(--day2);background:rgba(129,199,132,0.1)">4</div><div class="stop-connector" style="background:var(--day2)"></div></div><div class="stop-info"><div class="stop-name">โลตัสหล่มสัก</div><div class="stop-time">09:45–11:15 น.</div><span class="stop-tag" style="background:rgba(129,199,132,0.15);color:var(--day2)">BRANCH</span></div></div><div class="stop-item"><div class="stop-line-wrap"><div class="stop-num" style="color:var(--day2);border-color:var(--day2);background:rgba(129,199,132,0.1)">5</div><div class="stop-connector" style="background:var(--day2)"></div></div><div class="stop-info"><div class="stop-name">U-Store ม.นเรศวร</div><div class="stop-time">14:05–15:35 น.</div><span class="stop-tag" style="background:rgba(129,199,132,0.15);color:var(--day2)">BRANCH</span></div></div><div class="stop-item"><div class="stop-line-wrap"><div class="stop-num" style="color:var(--day2);border-color:var(--day2);background:rgba(129,199,132,0.1)">6</div><div class="stop-connector" style="background:var(--day2)"></div></div><div class="stop-info"><div class="stop-name">U-Store มรภ.พิบูลฯ</div><div class="stop-time">15:50–17:20 น.</div><span class="stop-tag" style="background:rgba(129,199,132,0.15);color:var(--day2)">BRANCH</span></div></div><div class="stop-item"><div class="stop-line-wrap"><div class="stop-num" style="color:var(--hotel);border-color:var(--hotel);background:rgba(255,213,79,0.1)">H</div></div><div class="stop-info"><div class="stop-name">รร.มอสเทล พิษณุโลก</div><div class="stop-time">17:30 น. เช็คอิน</div><span class="stop-tag" style="background:rgba(255,213,79,0.15);color:var(--hotel)">HOTEL</span></div></div></div></div>
-    <div class="day-section"><div class="day-header"><div class="day-dot" style="background:var(--day3)"></div><span class="day-title" style="color:var(--day3)">Day 3</span><span class="day-date">13 พ.ค.</span></div><div class="stops-list"><div class="stop-item"><div class="stop-line-wrap"><div class="stop-num" style="color:var(--day3);border-color:var(--day3);background:rgba(255,183,77,0.1)">7</div><div class="stop-connector" style="background:var(--day3)"></div></div><div class="stop-info"><div class="stop-name">mobi ท็อปพิจิตร</div><div class="stop-time">10:05–11:35 น.</div><span class="stop-tag" style="background:rgba(255,183,77,0.15);color:var(--day3)">BRANCH</span></div></div><div class="stop-item"><div class="stop-line-wrap"><div class="stop-num" style="color:var(--hotel);border-color:var(--hotel);background:rgba(255,213,79,0.1)">H</div></div><div class="stop-info"><div class="stop-name">ไม้หอม นครสวรรค์</div><div class="stop-time">14:00 น. เช็คอิน + สรุปงาน</div><span class="stop-tag" style="background:rgba(255,213,79,0.15);color:var(--hotel)">HOTEL</span></div></div></div></div>
-    <div class="day-section"><div class="day-header"><div class="day-dot" style="background:var(--day4)"></div><span class="day-title" style="color:var(--day4)">Day 4</span><span class="day-date">14 พ.ค.</span></div><div class="stops-list"><div class="stop-item"><div class="stop-line-wrap"><div class="stop-num" style="color:var(--day4);border-color:var(--day4);background:rgba(240,98,146,0.1)">8</div><div class="stop-connector" style="background:var(--day4)"></div></div><div class="stop-info"><div class="stop-name">iStudio นครสวรรค์</div><div class="stop-time">10:00–19:00 น. (เต็มวัน)</div><span class="stop-tag" style="background:rgba(240,98,146,0.15);color:var(--day4)">BRANCH</span></div></div><div class="stop-item"><div class="stop-line-wrap"><div class="stop-num" style="color:var(--hotel);border-color:var(--hotel);background:rgba(255,213,79,0.1)">H</div></div><div class="stop-info"><div class="stop-name">ไม้หอม นครสวรรค์</div><div class="stop-time">19:00 น. พักคืน</div><span class="stop-tag" style="background:rgba(255,213,79,0.15);color:var(--hotel)">HOTEL</span></div></div></div></div>
-    <div class="day-section"><div class="day-header"><div class="day-dot" style="background:var(--day5)"></div><span class="day-title" style="color:var(--day5)">Day 5</span><span class="day-date">15 พ.ค.</span></div><div class="stops-list"><div class="stop-item"><div class="stop-line-wrap"><div class="stop-num" style="color:var(--day5);border-color:var(--day5);background:rgba(206,147,216,0.1)">E</div></div><div class="stop-info"><div class="stop-name">สรุปงาน + เดินทางกลับ 🏁</div><div class="stop-time">10:00 น.</div><span class="stop-tag" style="background:rgba(206,147,216,0.15);color:var(--day5)">END</span></div></div></div></div>
+  <div class="sidebar" id="sidebar"></div>
+  <div class="map-container">
+    <div id="map"></div>
+    <div class="map-overlay">
+      <div class="legend">
+        <div class="legend-title">LEGEND</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#4fc3f7"></div><span class="legend-label">Day 1 — กรุงเทพฯ › เพชรบูรณ์</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background:#81c784"></div><span class="legend-label">Day 2 — หล่มสัก › พิษณุโลก</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ffb74d"></div><span class="legend-label">Day 3 — พิษณุโลก › พิจิตร</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background:#f06292"></div><span class="legend-label">Day 4 — นครสวรรค์</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ce93d8"></div><span class="legend-label">Day 5 — เดินทางกลับ กรุงเทพฯ</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ffd54f"></div><span class="legend-label">ที่พัก (Hotel)</span></div>
+      </div>
+    </div>
+    <div class="stats-bar">
+      <div class="stat"><div class="stat-val">5</div><div class="stat-label">DAYS</div></div>
+      <div class="stat"><div class="stat-val">7</div><div class="stat-label">BRANCHES</div></div>
+      <div class="stat"><div class="stat-val">4</div><div class="stat-label">PROVINCES</div></div>
+      <div class="stat"><div class="stat-val" id="km-stat">...</div><div class="stat-label">KM TOTAL</div></div>
+      <div class="stat"><div class="stat-val">3</div><div class="stat-label">HOTELS</div></div>
+    </div>
   </div>
-  <div class="map-container"><iframe id="map-frame" src="https://www.google.com/maps/embed/v1/directions?key=AIzaSyD-9tSrke72PouQMnMX-a7eZSW0jkFMBWY&origin=15.4495,101.2070&destination=15.7173,100.1110&waypoints=15.4398,101.0702|15.6508,101.0868|16.3974,101.1371|16.4182,101.1426|16.7877,101.2395|16.7455,100.1915|16.8278,100.2095|16.8436,100.2335|16.4314,100.3382|15.7041,100.1181|15.7173,100.1110&mode=driving&avoid=tolls" allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe><div class="map-overlay"><a class="open-gmaps-btn" href="https://www.google.com/maps/dir/15.4495,101.2070/15.4398,101.0702/15.6508,101.0868/16.3974,101.1371/16.4182,101.1426/16.7877,101.2395/16.7455,100.1915/16.8278,100.2095/16.8436,100.2335/16.4314,100.3382/15.7041,100.1181/15.7173,100.1110" target="_blank" rel="noopener noreferrer">⬡ เปิดใน Google Maps</a><div class="legend"><div class="legend-title">LEGEND</div><div class="legend-item"><div class="legend-dot" style="background:var(--day1)"></div><span class="legend-label">Day 1 — ศรีเทพ › เพชรบูรณ์</span></div><div class="legend-item"><div class="legend-dot" style="background:var(--day2)"></div><span class="legend-label">Day 2 — หล่มสัก › พิษณุโลก</span></div><div class="legend-item"><div class="legend-dot" style="background:var(--day3)"></div><span class="legend-label">Day 3 — พิษณุโลก › พิจิตร</span></div><div class="legend-item"><div class="legend-dot" style="background:var(--day4)"></div><span class="legend-label">Day 4 — นครสวรรค์</span></div><div class="legend-item"><div class="legend-dot" style="background:var(--day5)"></div><span class="legend-label">Day 5 — เดินทางกลับ</span></div><div class="legend-item"><div class="legend-dot" style="background:var(--hotel)"></div><span class="legend-label">ที่พัก (Hotel)</span></div></div></div><div class="stats-bar"><div class="stat"><div class="stat-val">5</div><div class="stat-label">DAYS</div></div><div class="stat"><div class="stat-val">7</div><div class="stat-label">BRANCHES</div></div><div class="stat"><div class="stat-val">4</div><div class="stat-label">PROVINCES</div></div><div class="stat"><div class="stat-val">~750</div><div class="stat-label">KM TOTAL</div></div><div class="stat"><div class="stat-val">3</div><div class="stat-label">HOTELS</div></div></div></div></body></html>
+</div>
+<script>
+// ── STOP DATA ───────────────────────────────────────────────────────────────
+const DAYS = [
+  {
+    id:'day1', label:'Day 1', date:'11 พ.ค.', color:'#4fc3f7', rgb:'79,195,247',
+    stops:[
+      {id:'s0', num:'S', name:'🚗 จุดเริ่มต้น (กรุงเทพฯ)',      time:'08:30 น. ออกเดินทาง',          tag:'START',  lat:13.7563, lng:100.5018},
+      {id:'s1', num:'1', name:'โลตัสศรีเทพ',                     time:'11:30–13:00 น.',               tag:'BRANCH', lat:15.4398, lng:101.0702},
+      {id:'s2', num:'2', name:'Big C วิเชียรบุรี',               time:'14:00–15:30 น.',               tag:'BRANCH', lat:15.6508, lng:101.0868},
+      {id:'s3', num:'3', name:'โลตัสเพชรบูรณ์',                  time:'17:00–18:30 น.',               tag:'BRANCH', lat:16.3974, lng:101.1371},
+      {id:'h1', num:'H', name:'รร.เฟื่องฟ้าลิทซ์',              time:'18:40 น. เช็คอิน',             tag:'HOTEL',  lat:16.4182, lng:101.1426, hotel:true},
+    ]
+  },
+  {
+    id:'day2', label:'Day 2', date:'12 พ.ค.', color:'#81c784', rgb:'129,199,132',
+    stops:[
+      {id:'s4', num:'4', name:'โลตัสหล่มสัก',                    time:'09:45–11:15 น.',               tag:'BRANCH', lat:16.7877, lng:101.2395},
+      {id:'s5', num:'5', name:'U-Store ม.นเรศวร',                time:'14:05–15:35 น.',               tag:'BRANCH', lat:16.7455, lng:100.1915},
+      {id:'s6', num:'6', name:'U-Store มรภ.พิบูลฯ',             time:'15:50–17:20 น.',               tag:'BRANCH', lat:16.8278, lng:100.2095},
+      {id:'h2', num:'H', name:'รร.มอสเทล พิษณุโลก',             time:'17:30 น. เช็คอิน',             tag:'HOTEL',  lat:16.8436, lng:100.2335, hotel:true},
+    ]
+  },
+  {
+    id:'day3', label:'Day 3', date:'13 พ.ค.', color:'#ffb74d', rgb:'255,183,77',
+    stops:[
+      {id:'s7', num:'7', name:'mobi ท็อปพิจิตร',                 time:'10:05–11:35 น.',               tag:'BRANCH', lat:16.4314, lng:100.3382},
+      {id:'h3', num:'H', name:'ไม้หอม นครสวรรค์',               time:'14:00 น. เช็คอิน + สรุปงาน',  tag:'HOTEL',  lat:15.7173, lng:100.1110, hotel:true},
+    ]
+  },
+  {
+    id:'day4', label:'Day 4', date:'14 พ.ค.', color:'#f06292', rgb:'240,98,146',
+    stops:[
+      {id:'s8', num:'8', name:'iStudio นครสวรรค์',               time:'10:00–19:00 น. (เต็มวัน)',     tag:'BRANCH', lat:15.7041, lng:100.1181},
+      {id:'h4', num:'H', name:'ไม้หอม นครสวรรค์',               time:'19:00 น. พักคืน',              tag:'HOTEL',  lat:15.7173, lng:100.1110, hotel:true},
+    ]
+  },
+  {
+    id:'day5', label:'Day 5', date:'15 พ.ค.', color:'#ce93d8', rgb:'206,147,216',
+    stops:[
+      {id:'e0', num:'E', name:'สรุปงาน + เดินทางกลับ 🏁',        time:'มาถึงกรุงเทพฯ ~14:00 น.',      tag:'END',    lat:13.7563, lng:100.5018},
+    ]
+  },
+];
+
+// ── HAVERSINE ──────────────────────────────────────────────────────────────
+function haversine(a,b,c,d){
+  const R=6371, toR=Math.PI/180;
+  const dLat=(c-a)*toR, dLng=(d-b)*toR;
+  const x=Math.sin(dLat/2)**2+Math.cos(a*toR)*Math.cos(c*toR)*Math.sin(dLng/2)**2;
+  return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
+}
+
+// Build flat ordered list of all stops
+const allStops = [];
+DAYS.forEach(day => day.stops.forEach(s => allStops.push(s)));
+
+// Calculate total straight-line km then apply road factor ~1.28
+let straight = 0;
+for(let i=1;i<allStops.length;i++)
+  straight += haversine(allStops[i-1].lat, allStops[i-1].lng, allStops[i].lat, allStops[i].lng);
+const roadKm = Math.round(straight * 1.28 / 50) * 50;
+document.getElementById('km-stat').textContent = '~'+roadKm;
+document.getElementById('header-sub').textContent = `5 DAYS · 7 BRANCHES · 4 PROVINCES · ~${roadKm} KM TOTAL`;
+
+// ── INIT MAP ───────────────────────────────────────────────────────────────
+const map = L.map('map', {center:[15.5,100.9], zoom:7});
+// Will fit to route bounds after markers are added
+
+// OSM standard tiles — renders Thai language labels natively
+// Dark theme achieved via CSS filter on the tile pane
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  maxZoom: 19
+}).addTo(map);
+
+// ── POLYLINES ──────────────────────────────────────────────────────────────
+let prev = null;
+DAYS.forEach(day => {
+  const pts = day.stops.map(s => [s.lat, s.lng]);
+  if(prev){
+    // dashed connector between days
+    L.polyline([[prev.lat,prev.lng], pts[0]], {
+      color: day.color, weight:2.5, opacity:0.45, dashArray:'7,7'
+    }).addTo(map);
+  }
+  L.polyline(pts, {color:day.color, weight:4, opacity:0.9, lineJoin:'round'}).addTo(map);
+  prev = day.stops[day.stops.length-1];
+});
+
+// ── MARKERS ────────────────────────────────────────────────────────────────
+function makeIcon(color, label){
+  const c = encodeURIComponent(color);
+  const html = `<div style="
+    background:${color};border:2.5px solid #0f1117;border-radius:50% 50% 50% 0;
+    width:28px;height:28px;transform:rotate(-45deg);
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 2px 8px rgba(0,0,0,0.6);">
+    <span style="transform:rotate(45deg);font-family:'IBM Plex Mono',monospace;
+      font-size:9px;font-weight:700;color:#0f1117;line-height:1">${label}</span>
+  </div>`;
+  return L.divIcon({html, iconSize:[28,28], iconAnchor:[14,28], popupAnchor:[0,-30], className:''});
+}
+
+const markersMap = {};
+const allLatLngs = [];
+
+DAYS.forEach(day => {
+  day.stops.forEach(stop => {
+    const col = stop.hotel ? '#ffd54f' : day.color;
+    const rgb = stop.hotel ? '255,213,79' : day.rgb;
+    const marker = L.marker([stop.lat,stop.lng], {icon:makeIcon(col,stop.num)}).addTo(map);
+    allLatLngs.push([stop.lat,stop.lng]);
+    marker.bindPopup(`
+      <div class="popup-name">${stop.name}</div>
+      <div class="popup-time">${stop.time}</div>
+      <span class="popup-tag" style="background:rgba(${rgb},0.2);color:${col}">${stop.tag}</span>
+    `);
+    markersMap[stop.id] = marker;
+  });
+});
+
+// Fit map to full route bounds on load
+if(allLatLngs.length) map.fitBounds(L.latLngBounds(allLatLngs), {padding:[40,40]});
+
+// ── SIDEBAR ────────────────────────────────────────────────────────────────
+const sidebar = document.getElementById('sidebar');
+let activeId = null;
+
+function activate(id){
+  if(activeId){
+    const el=document.getElementById('si-'+activeId);
+    if(el) el.classList.remove('active');
+  }
+  activeId=id;
+  const el=document.getElementById('si-'+id);
+  if(el) el.classList.add('active');
+}
+
+DAYS.forEach(day => {
+  const sec = document.createElement('div');
+  sec.className = 'day-section';
+
+  // Day header — click to fit bounds of this day
+  const hdr = document.createElement('div');
+  hdr.className = 'day-header';
+  hdr.innerHTML = `
+    <div class="day-dot" style="background:${day.color}"></div>
+    <span class="day-title" style="color:${day.color}">${day.label}</span>
+    <span class="day-date">${day.date}</span>`;
+  hdr.addEventListener('click', () => {
+    const bounds = L.latLngBounds(day.stops.map(s=>[s.lat,s.lng]));
+    map.flyToBounds(bounds, {padding:[80,80], maxZoom:13, duration:1});
+  });
+  sec.appendChild(hdr);
+
+  const list = document.createElement('div');
+  list.className = 'stops-list';
+
+  day.stops.forEach((stop, idx) => {
+    const isLast = idx === day.stops.length-1;
+    const col = stop.hotel ? '#ffd54f' : day.color;
+    const rgb = stop.hotel ? '255,213,79' : day.rgb;
+
+    const item = document.createElement('div');
+    item.className = 'stop-item';
+    item.id = 'si-'+stop.id;
+    item.innerHTML = `
+      <div class="stop-line-wrap">
+        <div class="stop-num" style="color:${col};border-color:${col};background:rgba(${rgb},0.1)">${stop.num}</div>
+        ${!isLast?`<div class="stop-connector" style="background:${col}"></div>`:''}
+      </div>
+      <div class="stop-info">
+        <div class="stop-name">${stop.name}</div>
+        <div class="stop-time">${stop.time}</div>
+        <span class="stop-tag" style="background:rgba(${rgb},0.15);color:${col}">${stop.tag}</span>
+      </div>`;
+    item.addEventListener('click', () => {
+      activate(stop.id);
+      map.flyTo([stop.lat,stop.lng], 15, {duration:1.2});
+      const m = markersMap[stop.id];
+      if(m) setTimeout(()=>m.openPopup(), 1250);
+    });
+    list.appendChild(item);
+  });
+
+  sec.appendChild(list);
+  sidebar.appendChild(sec);
+});
+</script>
+</body>
+</html>
